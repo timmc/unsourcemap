@@ -3,6 +3,7 @@
 var fs = require('fs');
 var ArgumentParser = require('argparse').ArgumentParser;
 var sourceMap = require('source-map');
+var path = require('path');
 
 var parser = new ArgumentParser({
   addHelp: true,
@@ -24,14 +25,57 @@ if (!fs.existsSync(outDir)) {
   fs.mkdirSync(outDir, 0o755);
 }
 
-function sanitizeSourceName(url) {
-  return url.replace(/[^a-zA-Z0-9\-_.:]/g, '_');
+fs.isDir = function(dpath) {
+	try {
+		return fs.lstatSync(dpath).isDirectory();
+	} catch(e) {
+		return false;
+	}
+};
+
+fs.mkdirp = function(dirname) {
+	dirname = path.normalize(dirname).split(path.sep);
+	dirname.forEach((sdir,index) => {
+		var pathInQuestion = dirname.slice(0,index+1).join(path.sep);
+		if((!fs.isDir(pathInQuestion)) && pathInQuestion) {
+			fs.mkdirSync(pathInQuestion, 0o755);
+		}
+	});
+};
+
+fs.isParentOf = function(parent, fileName) {
+	var a = path.normalize(parent);
+	var b = path.normalize(fileName);
+	var b_in_a = b.indexOf(a) === 0;
+	if(b_in_a && b.charAt(a.length) === path.sep) {
+		return true;
+	}
+	return false;
+};
+
+function removeParentDir(filePath) {
+	var str = filePath;
+	var result = filePath.replace(/\.\.\//g, "");
+	var regExp = new RegExp(outDir, 'g');
+	result = result.replace(regExp, outDir + '/outOfBaseDir');
+	return result;
+};
+
+function assertFileDirExists(fileName) {
+	if(fs.isParentOf(outDir, fileName)) {
+		fs.mkdirp(path.dirname(fileName));
+	}
+	else {
+		fileName = removeParentDir(fileName);
+		fs.mkdirp(path.dirname(fileName));
+	}
+	return fileName;
 }
 
-for (var i = 0; i < map.sources.length; i++) {
+for(var i = 0; i < map.sources.length; i++) {
   var sUrl = map.sources[i];
   console.log("Writing", sUrl);
-  var dest = outDir + '/' + i + '-' + sanitizeSourceName(sUrl);
+  var dest = assertFileDirExists(outDir + '/' + sUrl);
   var contents = map.sourceContentFor(sUrl);
   fs.writeFileSync(dest, contents, 'utf8', 0o644);
 }
