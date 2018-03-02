@@ -25,7 +25,7 @@ if (!fs.existsSync(outDir)) {
 }
 
 function sanitizeSourceName(url) {
-  return url.replace(/[^a-zA-Z0-9\-_.:]/g, '_');
+  return url.replace(/[^a-zA-Z0-9\-_.]/g, '_');
 }
 
 for (var i = 0; i < map.sources.length; i++) {
